@@ -157,4 +157,4 @@ cython_debug/
 # VS Code
 .vscode/
 
-GEMINI.md
+GEMINI.md.DS_Store
