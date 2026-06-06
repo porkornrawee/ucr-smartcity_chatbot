@@ -11,9 +11,45 @@ from linebot.v3.messaging import (
     FlexBox,
     FlexText,
     FlexButton,
+    FlexSeparator,
 )
 
 from app.config import GO_BACK_KEYWORD, CONFIRM_KEYWORD
+
+
+def _progress_header(step: int, total: int) -> FlexBox:
+    """Small step counter + thin progress bar shown at the top of every question card."""
+    human_step = step + 1
+    remaining = total - human_step
+    pct = round(human_step / total * 100)
+
+    remaining_text = "ข้อสุดท้าย" if remaining == 0 else f"เหลืออีก {remaining} ข้อ"
+
+    text_row = FlexBox(
+        layout="horizontal",
+        contents=[
+            FlexText(text=f"ข้อที่ {human_step} / {total}", size="xs", color="#96B4C8", flex=1),
+            FlexText(text=remaining_text, size="xs", color="#96B4C8", align="end"),
+        ],
+    )
+
+    fill = FlexBox(
+        layout="vertical",
+        contents=[],
+        width=f"{pct}%",
+        height="4px",
+        background_color="#4A90C4",
+        corner_radius="999px",
+    )
+    bar = FlexBox(
+        layout="vertical",
+        contents=[fill] if pct > 0 else [],
+        height="4px",
+        background_color="#EBF4FB",
+        corner_radius="999px",
+    )
+
+    return FlexBox(layout="vertical", contents=[text_row, bar], spacing="sm")
 
 
 def build_question_message(
@@ -21,6 +57,8 @@ def build_question_message(
     show_go_back: bool = True,
     multi_select_pending: list = None,
     multi_select_max: int = None,
+    step: int = 0,
+    total: int = 0,
 ):
     """Build the LINE message for a survey question.
 
@@ -61,7 +99,13 @@ def build_question_message(
             style="link",
         ))
 
-    body_contents = [FlexText(text=question_obj.text, wrap=True, weight="bold", size="md")]
+    body_contents = []
+    if total > 0:
+        body_contents.append(_progress_header(step, total))
+        body_contents.append(FlexSeparator(margin="sm"))
+
+    body_contents.append(FlexText(text=question_obj.text, wrap=True, weight="bold", size="md"))
+
     if multi_select_pending:
         selected_labels = ", ".join(multi_select_pending)
         body_contents.append(FlexText(
@@ -92,9 +136,11 @@ async def send_question(
     show_go_back: bool = True,
     multi_select_pending: list = None,
     multi_select_max: int = None,
+    step: int = 0,
+    total: int = 0,
 ):
     message = build_question_message(
-        question_obj, show_go_back, multi_select_pending, multi_select_max
+        question_obj, show_go_back, multi_select_pending, multi_select_max, step, total
     )
     await line_bot_api.reply_message(
         ReplyMessageRequest(reply_token=reply_token, messages=[message])

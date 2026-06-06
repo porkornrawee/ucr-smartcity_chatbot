@@ -25,7 +25,8 @@ async def start_survey_session(user_id: str, survey_version: str, reply_token: s
     first_question_id = survey.routes[start_route_id].questions[0]
     first_question = survey_manager.get_question(survey_version, first_question_id)
     if first_question:
-        await messages.send_question(reply_token, first_question, line_bot_api, show_go_back=False)
+        route_total = len(survey.routes[start_route_id].questions)
+        await messages.send_question(reply_token, first_question, line_bot_api, show_go_back=False, step=0, total=route_total)
 
 
 async def process_survey_answer(user_id: str, answer_data, reply_token: str, line_bot_api, db: AsyncSession):
@@ -61,7 +62,8 @@ async def process_survey_answer(user_id: str, answer_data, reply_token: str, lin
 
         prev_question = survey_manager.get_question(survey_version, go_back["question_id"])
         is_first = (go_back["route_id"] == survey.onstart and go_back["step"] == 0)
-        await messages.send_question(reply_token, prev_question, line_bot_api, show_go_back=not is_first)
+        route_total = len(survey.routes[go_back["route_id"]].questions)
+        await messages.send_question(reply_token, prev_question, line_bot_api, show_go_back=not is_first, step=go_back["step"], total=route_total)
         return
 
     # 3. Identify the question the user just answered
@@ -88,11 +90,14 @@ async def process_survey_answer(user_id: str, answer_data, reply_token: str, lin
             active_session.pending_multi_select = pending_all
             await repo.save_session(db)
             max_sel = current_question.max_selections or 99
+            route_total = len(survey.routes[active_session.current_route_id].questions)
             await messages.send_question(
                 reply_token, current_question, line_bot_api,
                 show_go_back=True,
                 multi_select_pending=ms_result["pending"],
                 multi_select_max=max_sel,
+                step=active_session.current_step,
+                total=route_total,
             )
             return
 
@@ -126,7 +131,8 @@ async def process_survey_answer(user_id: str, answer_data, reply_token: str, lin
         active_session.route_history = list(result["route_history"])
         await repo.save_session(db)
         next_question = survey_manager.get_question(survey_version, result["next_question_id"])
-        await messages.send_question(reply_token, next_question, line_bot_api, show_go_back=True)
+        route_total = len(survey.routes[result["current_route_id"]].questions)
+        await messages.send_question(reply_token, next_question, line_bot_api, show_go_back=True, step=result["current_step"], total=route_total)
 
     elif result["action"] == "next_route":
         # If we just finished the profile route, mark the user as profiled
@@ -138,7 +144,8 @@ async def process_survey_answer(user_id: str, answer_data, reply_token: str, lin
         active_session.route_history = list(result["route_history"])
         await repo.save_session(db)
         next_question = survey_manager.get_question(survey_version, result["next_question_id"])
-        await messages.send_question(reply_token, next_question, line_bot_api, show_go_back=True)
+        route_total = len(survey.routes[result["current_route_id"]].questions)
+        await messages.send_question(reply_token, next_question, line_bot_api, show_go_back=True, step=result["current_step"], total=route_total)
 
     elif result["action"] == "complete":
         await repo.finalize_report(db, active_session)
