@@ -1,6 +1,6 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.utils.survey_loader import survey_manager
+from app.utils.survey_loader import survey_manager, Orchestrator
 from app.services.routing import (
     compute_next_state,
     compute_go_back_state,
@@ -10,6 +10,38 @@ from app.services.routing import (
 from app.services import survey_repository as repo
 from app.services import survey_messages as messages
 from app.config import GO_BACK_KEYWORD, CONFIRM_KEYWORD
+
+
+def _walk_total(survey, start_route_id: str) -> int:
+    """Estimate total questions by walking the survey from start_route_id following the first branch at each junction."""
+    total = 0
+    visited = set()
+    route_id = start_route_id
+    while route_id and route_id not in visited:
+        visited.add(route_id)
+        route = survey.routes.get(route_id)
+        if not route:
+            break
+        total += len(route.questions)
+        next_spec = route.next
+        if next_spec is None:
+            break
+        elif isinstance(next_spec, str):
+            route_id = next_spec
+        elif isinstance(next_spec, Orchestrator):
+            route_id = next_spec.conditions[0].goto if next_spec.conditions else next_spec.default
+        else:
+            break
+    return total
+
+
+def _global_step(survey, route_history: list, current_step: int) -> int:
+    """Compute absolute question index across all completed routes (route_history) plus current_step."""
+    return sum(
+        len(survey.routes[entry["route_id"]].questions)
+        for entry in (route_history or [])
+        if entry["route_id"] in survey.routes
+    ) + current_step
 
 
 async def start_survey_session(user_id: str, survey_version: str, reply_token: str, line_bot_api, db: AsyncSession):
@@ -25,8 +57,8 @@ async def start_survey_session(user_id: str, survey_version: str, reply_token: s
     first_question_id = survey.routes[start_route_id].questions[0]
     first_question = survey_manager.get_question(survey_version, first_question_id)
     if first_question:
-        route_total = len(survey.routes[start_route_id].questions)
-        await messages.send_question(reply_token, first_question, line_bot_api, show_go_back=False, step=0, total=route_total)
+        total = _walk_total(survey, start_route_id)
+        await messages.send_question(reply_token, first_question, line_bot_api, show_go_back=False, step=0, total=total)
 
 
 async def process_survey_answer(user_id: str, answer_data, reply_token: str, line_bot_api, db: AsyncSession):
@@ -56,14 +88,17 @@ async def process_survey_answer(user_id: str, answer_data, reply_token: str, lin
         active_session.payload = payload
         active_session.current_route_id = go_back["route_id"]
         active_session.current_step = go_back["step"]
-        if "route_history" in go_back:
-            active_session.route_history = list(go_back["route_history"])
+        new_history = list(go_back["route_history"]) if "route_history" in go_back else (active_session.route_history or [])
+        active_session.route_history = new_history
+        # Compute progress BEFORE commit — committing expires ORM attributes (expire_on_commit)
+        # and reading them back would trigger a lazy DB load outside the async greenlet.
+        total = _walk_total(survey, survey.onstart)
+        gstep = _global_step(survey, new_history, go_back["step"])
         await repo.save_session(db)
 
         prev_question = survey_manager.get_question(survey_version, go_back["question_id"])
         is_first = (go_back["route_id"] == survey.onstart and go_back["step"] == 0)
-        route_total = len(survey.routes[go_back["route_id"]].questions)
-        await messages.send_question(reply_token, prev_question, line_bot_api, show_go_back=not is_first, step=go_back["step"], total=route_total)
+        await messages.send_question(reply_token, prev_question, line_bot_api, show_go_back=not is_first, step=gstep, total=total)
         return
 
     # 3. Identify the question the user just answered
@@ -88,16 +123,19 @@ async def process_survey_answer(user_id: str, answer_data, reply_token: str, lin
         if ms_result["action"] == "accumulate":
             pending_all[current_question_id] = ms_result["pending"]
             active_session.pending_multi_select = pending_all
-            await repo.save_session(db)
+            # Capture progress inputs BEFORE commit — commit expires ORM attributes and
+            # reading them back would trigger a lazy DB load outside the async greenlet.
             max_sel = current_question.max_selections or 99
-            route_total = len(survey.routes[active_session.current_route_id].questions)
+            total = _walk_total(survey, survey.onstart)
+            gstep = _global_step(survey, active_session.route_history or [], active_session.current_step)
+            await repo.save_session(db)
             await messages.send_question(
                 reply_token, current_question, line_bot_api,
                 show_go_back=True,
                 multi_select_pending=ms_result["pending"],
                 multi_select_max=max_sel,
-                step=active_session.current_step,
-                total=route_total,
+                step=gstep,
+                total=total,
             )
             return
 
@@ -131,8 +169,9 @@ async def process_survey_answer(user_id: str, answer_data, reply_token: str, lin
         active_session.route_history = list(result["route_history"])
         await repo.save_session(db)
         next_question = survey_manager.get_question(survey_version, result["next_question_id"])
-        route_total = len(survey.routes[result["current_route_id"]].questions)
-        await messages.send_question(reply_token, next_question, line_bot_api, show_go_back=True, step=result["current_step"], total=route_total)
+        total = _walk_total(survey, survey.onstart)
+        gstep = _global_step(survey, result["route_history"], result["current_step"])
+        await messages.send_question(reply_token, next_question, line_bot_api, show_go_back=True, step=gstep, total=total)
 
     elif result["action"] == "next_route":
         # If we just finished the profile route, mark the user as profiled
@@ -144,8 +183,9 @@ async def process_survey_answer(user_id: str, answer_data, reply_token: str, lin
         active_session.route_history = list(result["route_history"])
         await repo.save_session(db)
         next_question = survey_manager.get_question(survey_version, result["next_question_id"])
-        route_total = len(survey.routes[result["current_route_id"]].questions)
-        await messages.send_question(reply_token, next_question, line_bot_api, show_go_back=True, step=result["current_step"], total=route_total)
+        total = _walk_total(survey, survey.onstart)
+        gstep = _global_step(survey, result["route_history"], result["current_step"])
+        await messages.send_question(reply_token, next_question, line_bot_api, show_go_back=True, step=gstep, total=total)
 
     elif result["action"] == "complete":
         await repo.finalize_report(db, active_session)

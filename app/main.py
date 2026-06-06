@@ -8,12 +8,13 @@ import time
 from collections import defaultdict
 from linebot.v3 import WebhookParser
 from linebot.v3.messaging import Configuration, AsyncApiClient, AsyncMessagingApi
-from linebot.v3.webhooks import MessageEvent
+from linebot.v3.webhooks import MessageEvent, FollowEvent
 from linebot.v3.exceptions import InvalidSignatureError
 
 from app.config import CHANNEL_SECRET, CHANNEL_ACCESS_TOKEN, SURVEYS_DIR
 from app.database import engine, Base, get_db
 from app.handlers.message_handler import route_message_event
+from app.handlers.welcome_handler import handle_follow
 from app.utils.survey_loader import survey_manager
 from app.routes.dashboard import router as dashboard_router
 from fastapi.middleware.cors import CORSMiddleware
@@ -124,6 +125,8 @@ async def callback(request: Request, db: AsyncSession = Depends(get_db)):
         for event in events:
             if isinstance(event, MessageEvent):
                 await route_message_event(event, line_bot_api, db)
+            elif isinstance(event, FollowEvent):
+                await handle_follow(event, line_bot_api, db)
 
     return 'OK'
 

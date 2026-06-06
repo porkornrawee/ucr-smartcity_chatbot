@@ -14,6 +14,7 @@ IMAGES_DIR = BASE_DIR / "app" / "data" / "images"
 
 #add question file path here
 SURVEY_TRIGGER_MAP = {
+    "สอบถาม": "socratic_community_report_v3",
     "เริ่มทำแบบสำรวจ": "socratic_community_report_v3",
     "devtest": "devtest",
     "d2":"community_report_v1",
@@ -36,6 +37,27 @@ PROJECT_INFO_TEXT = (
 
 REPORT_DEVELOPMENT_TEXT = "📝 ระบบรายงานปัญหา (Report) กำลังอยู่ระหว่างการพัฒนาเป็นรูปแบบ Website (LIFF) ครับ"
 SUMMARY_PLACEHOLDER_TEXT = "📊 ระบบสรุปผลกำลังอยู่ระหว่างการพัฒนา จะพร้อมให้ใช้งานเร็วๆ นี้ครับ"
+
+# Welcome onboarding (sent on FollowEvent — user adds the bot / unblocks)
+WELCOME_STEP_1 = (
+    "สวัสดีครับ ยินดีต้อนรับสู่ UCR Smart City 🏙️\n"
+    "ผู้ช่วยเก็บข้อมูลสิ่งแวดล้อมและโครงสร้างพื้นฐานในชุมชนของเราครับ"
+)
+WELCOME_STEP_2 = (
+    "ข้อมูลที่คุณช่วยรายงาน (อุณหภูมิ ความชื้น เสียง ขยะ พิกัด รูปภาพ) "
+    "จะถูกนำไปใช้ออกแบบผังเมืองและจัดวางสิ่งอำนวยความสะดวกให้เหมาะกับคนในพื้นที่จริง 🗺️\n\n"
+    "พร้อมเริ่มแล้วกดปุ่ม “สอบถาม” ที่เมนูด้านล่างเพื่อทำแบบสำรวจได้เลยครับ 👇"
+)
+
+# Contact card (shown on the 'ติดต่อ' Rich Menu button — contactFlex)
+# ⚠️ ปรับข้อมูลติดต่อจริงของทีมตรงนี้
+CONTACT_TITLE = "ติดต่อทีมงาน UCR Smart City"
+CONTACT_SUB = "มีคำถามหรือต้องการความช่วยเหลือ ติดต่อเราได้ตามช่องทางด้านล่างครับ"
+CONTACT_LIST = [
+    {"icon": "📧", "name": "อีเมล", "detail": "ucr.smartcity@example.com"},
+    {"icon": "📞", "name": "โทรศัพท์", "detail": "0X-XXX-XXXX"},
+    {"icon": "🕘", "name": "เวลาทำการ", "detail": "จันทร์–ศุกร์ 09:00–17:00 น."},
+]
 
 #if forget add .env
 if not CHANNEL_SECRET or not CHANNEL_ACCESS_TOKEN:

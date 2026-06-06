@@ -6,50 +6,12 @@ from linebot.v3.messaging import (
     MessageAction,
     LocationAction,
     CameraAction,
-    FlexMessage,
-    FlexBubble,
     FlexBox,
-    FlexText,
     FlexButton,
-    FlexSeparator,
 )
 
 from app.config import GO_BACK_KEYWORD, CONFIRM_KEYWORD
-
-
-def _progress_header(step: int, total: int) -> FlexBox:
-    """Small step counter + thin progress bar shown at the top of every question card."""
-    human_step = step + 1
-    remaining = total - human_step
-    pct = round(human_step / total * 100)
-
-    remaining_text = "ข้อสุดท้าย" if remaining == 0 else f"เหลืออีก {remaining} ข้อ"
-
-    text_row = FlexBox(
-        layout="horizontal",
-        contents=[
-            FlexText(text=f"ข้อที่ {human_step} / {total}", size="xs", color="#96B4C8", flex=1),
-            FlexText(text=remaining_text, size="xs", color="#96B4C8", align="end"),
-        ],
-    )
-
-    fill = FlexBox(
-        layout="vertical",
-        contents=[],
-        width=f"{pct}%",
-        height="4px",
-        background_color="#4A90C4",
-        corner_radius="999px",
-    )
-    bar = FlexBox(
-        layout="vertical",
-        contents=[fill] if pct > 0 else [],
-        height="4px",
-        background_color="#EBF4FB",
-        corner_radius="999px",
-    )
-
-    return FlexBox(layout="vertical", contents=[text_row, bar], spacing="sm")
+from app.utils import flex_builder
 
 
 def build_question_message(
@@ -62,12 +24,16 @@ def build_question_message(
 ):
     """Build the LINE message for a survey question.
 
-    Every question renders as a Flex bubble: the prompt plus all message-action
-    options (choices, multi-select confirm, go-back) as card buttons. Native
-    location / camera options can't live in a Flex button, so they go in the
-    bubble's attached quick-reply bar instead.
+    The card body (progress bar, accent strip, multi-select tally) is built by
+    the shared design-system builder in ``flex_builder`` (colours from
+    ux_tokens). The tappable options are attached on top: message-action options
+    become Flex footer buttons; native location / camera options can't live in a
+    Flex button, so they go in the bubble's attached quick-reply bar instead.
     """
     already_selected = set(multi_select_pending or [])
+    is_multi = getattr(question_obj, "type", None) == "multi_select"
+    selected_list = list(multi_select_pending or [])
+    max_sel = multi_select_max or getattr(question_obj, "max_selections", None) or 99
 
     footer_buttons = []
     quick_reply_items = []
@@ -85,9 +51,8 @@ def build_question_message(
             action = MessageAction(label=opt.label, text=opt.value if opt.value else opt.label)
             footer_buttons.append(FlexButton(action=action, style="secondary"))
 
-    if multi_select_pending is not None:
-        count = len(multi_select_pending)
-        confirm_label = f"✅ ยืนยัน ({count}/{multi_select_max})"
+    if is_multi and selected_list:
+        confirm_label = f"✅ ยืนยัน ({len(selected_list)}/{max_sel})"
         footer_buttons.append(FlexButton(
             action=MessageAction(label=confirm_label, text=CONFIRM_KEYWORD),
             style="primary",
@@ -99,29 +64,18 @@ def build_question_message(
             style="link",
         ))
 
-    body_contents = []
-    if total > 0:
-        body_contents.append(_progress_header(step, total))
-        body_contents.append(FlexSeparator(margin="sm"))
-
-    body_contents.append(FlexText(text=question_obj.text, wrap=True, weight="bold", size="md"))
-
-    if multi_select_pending:
-        selected_labels = ", ".join(multi_select_pending)
-        body_contents.append(FlexText(
-            text=f"เลือกแล้ว: {selected_labels}",
-            wrap=True, size="sm", color="#888888", margin="md",
-        ))
-
-    bubble = FlexBubble(
-        body=FlexBox(layout="vertical", contents=body_contents, spacing="md"),
-        footer=FlexBox(layout="vertical", contents=footer_buttons, spacing="sm") if footer_buttons else None,
+    bubble = flex_builder.question_bubble(
+        question_text=question_obj.text,
+        step_index=step,
+        route_len=total,
+        multi_select_pending=selected_list if is_multi else None,
+        multi_select_max=max_sel if is_multi else None,
     )
-    return FlexMessage(
-        alt_text=_alt_text(question_obj.text),
-        contents=bubble,
-        quick_reply=QuickReply(items=quick_reply_items) if quick_reply_items else None,
-    )
+    if footer_buttons:
+        bubble.footer = FlexBox(layout="vertical", contents=footer_buttons, spacing="sm")
+
+    quick_reply = QuickReply(items=quick_reply_items) if quick_reply_items else None
+    return flex_builder.to_message(_alt_text(question_obj.text), bubble, quick_reply)
 
 
 def _alt_text(text: str) -> str:

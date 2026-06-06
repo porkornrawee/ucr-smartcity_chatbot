@@ -3,6 +3,7 @@ from linebot.v3.webhooks import TextMessageContent, LocationMessageContent, Imag
 from app.handlers.info_handler import handle_info_request
 from app.handlers.stat_handler import handle_stat_request
 from app.handlers.report_handler import handle_report_request
+from app.handlers.contact_handler import handle_contact_request
 from app.handlers.chatbot_handler import handle_chatbot_chat, handle_chatbot_location, handle_chatbot_image
 
 
@@ -31,10 +32,15 @@ async def handle_text_message(event, line_bot_api, db: AsyncSession):
         await handle_stat_request(event, line_bot_api)
         return
 
-    # 3. Route to Report Handler (Fallback for 'รายงานปัญหา' text)
-    if text == "รายงานปัญหา":
+    # 3. Route to Report Handler
+    if text in ("รายงานปัญหา", "แจ้งปัญหา"):
         await handle_report_request(event, line_bot_api)
         return
 
-    # 4. Route to Chatbot Handler (Default for other text/surveys)
+    # 4. Route to Contact Handler
+    if text == "ติดต่อ":
+        await handle_contact_request(event, line_bot_api)
+        return
+
+    # 5. Route to Chatbot Handler (Default for other text/surveys)
     await handle_chatbot_chat(event, line_bot_api, db, text)
