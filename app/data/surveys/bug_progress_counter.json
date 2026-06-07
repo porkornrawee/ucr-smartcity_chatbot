@@ -1,0 +1,109 @@
+{
+  "version": "bug_progress_counter",
+  "onstart": "start_route",
+  "questions": {
+    "q_choice": {
+      "id": "q_choice",
+      "type": "quick_reply",
+      "text": "REPRO: เลือกเส้นทาง — 'Short' มี 1 คำถาม, 'Long' มี 3 คำถาม. _walk_total เดินตาม conditions[0] (Short) เสมอ จึงได้ total=2 ทั้งสองทาง. เลือก Long แล้ว counter จะค้างที่ 'ข้อ 2 จาก 2' (100%) ทั้งที่ยังไม่จบ.",
+      "options": [
+        {
+          "label": "Short (1)",
+          "action_type": "message",
+          "value": "short"
+        },
+        {
+          "label": "Long (3)",
+          "action_type": "message",
+          "value": "long"
+        }
+      ]
+    },
+    "q_short_1": {
+      "id": "q_short_1",
+      "type": "quick_reply",
+      "text": "[Short 1/1] ทางนี้ถูกต้อง: ควรเห็น 'ข้อ 2 จาก 2'.",
+      "options": [
+        {
+          "label": "เสร็จ",
+          "action_type": "message",
+          "value": "done"
+        }
+      ]
+    },
+    "q_long_1": {
+      "id": "q_long_1",
+      "type": "quick_reply",
+      "text": "[Long 1/3] BUG: ควรเป็น 'ข้อ 2 จาก 4' แต่จะโชว์ 'ข้อ 2 จาก 2' (100%) ทั้งที่ยังเหลืออีก 2 ข้อ.",
+      "options": [
+        {
+          "label": "ต่อไป",
+          "action_type": "message",
+          "value": "next"
+        }
+      ]
+    },
+    "q_long_2": {
+      "id": "q_long_2",
+      "type": "quick_reply",
+      "text": "[Long 2/3] BUG: ค้างที่ 'ข้อ 2 จาก 2' (100%) เพราะ human_step ถูก min() cap ไว้ที่ total — bar เต็มแต่ survey ยังไม่จบ.",
+      "options": [
+        {
+          "label": "ต่อไป",
+          "action_type": "message",
+          "value": "next"
+        }
+      ]
+    },
+    "q_long_3": {
+      "id": "q_long_3",
+      "type": "quick_reply",
+      "text": "[Long 3/3] BUG: ยังค้าง 'ข้อ 2 จาก 2' (100%) — ผู้ใช้เห็น bar เต็ม/100% มาตั้งแต่ 2 ข้อก่อน แต่เพิ่งจะมาจบจริงตรงนี้.",
+      "options": [
+        {
+          "label": "เสร็จ",
+          "action_type": "message",
+          "value": "done"
+        }
+      ]
+    }
+  },
+  "routes": {
+    "start_route": {
+      "questions": [
+        "q_choice"
+      ],
+      "next": {
+        "conditions": [
+          {
+            "when": {
+              "q_choice": "short"
+            },
+            "goto": "short_route"
+          },
+          {
+            "when": {
+              "q_choice": "long"
+            },
+            "goto": "long_route"
+          }
+        ],
+        "default": null
+      }
+    },
+    "short_route": {
+      "questions": [
+        "q_short_1"
+      ],
+      "next": null
+    },
+    "long_route": {
+      "questions": [
+        "q_long_1",
+        "q_long_2",
+        "q_long_3"
+      ],
+      "next": null
+    }
+  }
+}

@@ -18,7 +18,8 @@ SURVEY_TRIGGER_MAP = {
     "เริ่มทำแบบสำรวจ": "socratic_community_report_v3",
     "devtest": "devtest",
     "d2":"community_report_v1",
-    "flex": "flex_devtest"
+    "flex": "flex_devtest",
+    "bug_counter": "bug_progress_counter"
     # อนาคตถ้ามีโปรเจกต์ใหม่ แค่มาเพิ่มตรงนี้ เช่น "รายงานน้ำท่วม": "flood_v2"
 }
 
