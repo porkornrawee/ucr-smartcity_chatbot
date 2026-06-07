@@ -217,6 +217,25 @@ def contact_bubble(title: str, sub: str, contacts: List[dict], accent_color: Opt
     )
 
 
+def confirm_bubble(title: str, body: str, accent_color: Optional[str] = None) -> FlexBubble:
+    """Two-button confirmation dialog — caller attaches footer buttons."""
+    accent_color = accent_color or COLOR.BRAND
+    return FlexBubble(
+        size="kilo",
+        body=FlexBox(
+            layout="vertical",
+            spacing="md",
+            padding_all="16px",
+            background_color=COLOR.SURFACE,
+            contents=[
+                _accent_strip(accent_color),
+                FlexText(text=title, size="lg", weight="bold", color=COLOR.TEXT, wrap=True),
+                FlexText(text=body, size="sm", color=COLOR.MUTED, wrap=True),
+            ],
+        ),
+    )
+
+
 def to_message(alt_text: str, bubble: FlexBubble, quick_reply: Optional[QuickReply] = None) -> FlexMessage:
     """Wrap a bubble into a sendable FlexMessage, optionally with a QuickReply."""
     return FlexMessage(alt_text=alt_text, contents=bubble, quick_reply=quick_reply)

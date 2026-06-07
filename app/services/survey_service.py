@@ -61,6 +61,22 @@ async def start_survey_session(user_id: str, survey_version: str, reply_token: s
         await messages.send_question(reply_token, first_question, line_bot_api, show_go_back=False, step=0, total=total)
 
 
+async def resend_current_question(user_id: str, reply_token: str, line_bot_api, db: AsyncSession):
+    """Resend the question the user is currently on — used when they choose to continue after a restart prompt."""
+    active_session = await repo.load_session(db, user_id)
+    if not active_session:
+        await messages.send_text(reply_token, "ไม่มีแบบสำรวจค้างอยู่ กรุณากดปุ่มเมนูเพื่อเริ่มใหม่ครับ", line_bot_api)
+        return
+    survey = survey_manager.get_survey(active_session.survey_version)
+    current_route = survey.routes[active_session.current_route_id]
+    current_question_id = current_route.questions[active_session.current_step]
+    current_question = survey_manager.get_question(active_session.survey_version, current_question_id)
+    is_first = (active_session.current_route_id == survey.onstart and active_session.current_step == 0)
+    total = _walk_total(survey, survey.onstart)
+    gstep = _global_step(survey, active_session.route_history or [], active_session.current_step)
+    await messages.send_question(reply_token, current_question, line_bot_api, show_go_back=not is_first, step=gstep, total=total)
+
+
 async def process_survey_answer(user_id: str, answer_data, reply_token: str, line_bot_api, db: AsyncSession):
     # 1. Load active session
     active_session = await repo.load_session(db, user_id)

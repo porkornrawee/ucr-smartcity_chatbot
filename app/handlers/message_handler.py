@@ -4,7 +4,7 @@ from app.handlers.info_handler import handle_info_request
 from app.handlers.stat_handler import handle_stat_request
 from app.handlers.report_handler import handle_report_request
 from app.handlers.contact_handler import handle_contact_request
-from app.handlers.chatbot_handler import handle_chatbot_chat, handle_chatbot_location, handle_chatbot_image
+from app.handlers.chatbot_handler import handle_chatbot_chat, handle_chatbot_location, handle_chatbot_image, handle_chatbot_postback
 
 
 async def route_message_event(event, line_bot_api, db: AsyncSession):
@@ -16,6 +16,11 @@ async def route_message_event(event, line_bot_api, db: AsyncSession):
         await handle_chatbot_location(event, line_bot_api, db)
     elif isinstance(message, ImageMessageContent):
         await handle_chatbot_image(event, line_bot_api, db)
+
+
+async def route_postback_event(event, line_bot_api, db: AsyncSession):
+    """Router for PostbackEvent — all postback data goes through the chatbot handler."""
+    await handle_chatbot_postback(event, line_bot_api, db)
 
 
 async def handle_text_message(event, line_bot_api, db: AsyncSession):

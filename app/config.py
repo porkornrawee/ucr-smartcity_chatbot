@@ -22,11 +22,14 @@ SURVEY_TRIGGER_MAP = {
     # อนาคตถ้ามีโปรเจกต์ใหม่ แค่มาเพิ่มตรงนี้ เช่น "รายงานน้ำท่วม": "flood_v2"
 }
 
-# Control keywords ที่ปุ่ม quick-reply ส่งกลับมา (และรับได้เมื่อผู้ใช้พิมพ์เอง)
-# ⚠️ ชั่วคราว: ดู docs/adr/0001-rename-sentinels-to-action-words.md
-# ปลายทางคือย้ายไปเป็น PostbackAction data token (issue #18)
+# Control keywords — ยังรับเมื่อผู้ใช้ PC/iPad พิมพ์เอง (ไม่มีปุ่ม Quick Reply บน desktop)
 GO_BACK_KEYWORD = "ย้อนกลับ"
 CONFIRM_KEYWORD = "ยืนยัน"
+
+# Postback data tokens — ส่งผ่าน PostbackAction (ไม่โชว์ใน chat bubble) — issue #18
+GO_BACK_POSTBACK = "go_back"
+RESTART_SURVEY_POSTBACK = "restart_survey"   # full data: "restart_survey:{version}"
+CONTINUE_SURVEY_POSTBACK = "continue_survey"
 
 # Static Reply Messages
 PROJECT_INFO_TEXT = (

@@ -4,13 +4,20 @@ from linebot.v3.messaging import (
     QuickReply,
     QuickReplyItem,
     MessageAction,
+    PostbackAction,
     LocationAction,
     CameraAction,
     FlexBox,
     FlexButton,
 )
 
-from app.config import GO_BACK_KEYWORD, CONFIRM_KEYWORD
+from app.config import (
+    GO_BACK_KEYWORD,
+    CONFIRM_KEYWORD,
+    GO_BACK_POSTBACK,
+    RESTART_SURVEY_POSTBACK,
+    CONTINUE_SURVEY_POSTBACK,
+)
 from app.utils import flex_builder
 
 
@@ -60,7 +67,7 @@ def build_question_message(
 
     if show_go_back:
         footer_buttons.append(FlexButton(
-            action=MessageAction(label="◀️ ย้อนกลับ", text=GO_BACK_KEYWORD),
+            action=PostbackAction(label="◀️ ย้อนกลับ", data=GO_BACK_POSTBACK),
             style="link",
         ))
 
@@ -105,4 +112,36 @@ async def send_text(reply_token: str, text: str, line_bot_api):
     """Reply with a plain text message."""
     await line_bot_api.reply_message(
         ReplyMessageRequest(reply_token=reply_token, messages=[TextMessage(text=text)])
+    )
+
+
+async def send_restart_confirm(reply_token: str, target_version: str, line_bot_api):
+    """Confirmation dialog when a trigger word arrives while a session is active (issue #19)."""
+    bubble = flex_builder.confirm_bubble(
+        title="มีแบบสำรวจค้างอยู่ครับ",
+        body="ต้องการเริ่มใหม่ตั้งแต่ต้น หรือทำต่อจากที่ค้างไว้ครับ?",
+    )
+    bubble.footer = FlexBox(
+        layout="vertical",
+        spacing="sm",
+        contents=[
+            FlexButton(
+                action=PostbackAction(
+                    label="▶️ ทำต่อ",
+                    data=CONTINUE_SURVEY_POSTBACK,
+                ),
+                style="primary",
+            ),
+            FlexButton(
+                action=PostbackAction(
+                    label="🔄 เริ่มใหม่",
+                    data=f"{RESTART_SURVEY_POSTBACK}:{target_version}",
+                ),
+                style="secondary",
+            ),
+        ],
+    )
+    msg = flex_builder.to_message("มีแบบสำรวจค้างอยู่ — ทำต่อหรือเริ่มใหม่?", bubble)
+    await line_bot_api.reply_message(
+        ReplyMessageRequest(reply_token=reply_token, messages=[msg])
     )
