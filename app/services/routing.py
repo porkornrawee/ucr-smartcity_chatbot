@@ -34,7 +34,7 @@ def compute_next_state(
         }
 
     # Route is finished — resolve what comes next from this route's exit
-    next_route_id = _resolve_next_route(current_route.next, payload)
+    next_route_id = resolve_next_route(current_route.next, payload)
 
     if next_route_id is None:
         return {
@@ -141,7 +141,7 @@ def compute_multi_select_state(pending: list, new_answer: str, max_selections: i
     return {"action": "accumulate", "pending": updated}
 
 
-def _resolve_next_route(next_spec, payload: dict) -> Optional[str]:
+def resolve_next_route(next_spec, payload: dict) -> Optional[str]:
     """Turn a route's `next` into the id of the route to walk next.
 
     None / "route_id" / Orchestrator  ->  route id (or None to end the survey)
